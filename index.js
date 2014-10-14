@@ -8,8 +8,9 @@
 
 'use strict';
 
-module.exports = function() {
+module.exports = function(params) {
 
+  var fs = require('fs');
   var rfg_api = require('./lib/rfg_api.js').init();
   var cheerio = require("cheerio");
 
@@ -53,33 +54,33 @@ module.exports = function() {
   }
 
   function real_favicon() {
-    var done = this.async();
-    var html_files = this.data.html;
+
+    var html_files = params.html;
 
     // Build favicon generation request
     var request = {};
     request.api_key = 'f26d432783a1856427f32ed8793e1d457cc120f1';
     // Master picture
     request.master_picture = {};
-    if (is_url(this.data.src)) {
+    if (is_url(params.src)) {
       request.master_picture.type = 'url';
-      request.master_picture.url = this.data.src;
+      request.master_picture.url = params.src;
     }
     else {
       request.master_picture.type = 'inline';
-      request.master_picture.content = rfg_api.file_to_base64(this.data.src);
+      request.master_picture.content = rfg_api.file_to_base64(params.src);
     }
     // Path
     request.files_location = {};
-    if (this.data.icons_path === undefined) {
+    if (params.icons_path === undefined) {
       request.files_location.type = 'root';
     }
     else {
       request.files_location.type = 'path';
-      request.files_location.path = this.data.icons_path;
+      request.files_location.path = params.icons_path;
     }
     // Design
-    request.favicon_design = this.data.design;
+    request.favicon_design = params.design;
     if (request.favicon_design !== undefined) {
       if ((request.favicon_design.ios !== undefined) && (request.favicon_design.ios.picture_aspect === 'dedicated_picture')) {
         request.favicon_design.ios.dedicated_picture = rfg_api.file_to_base64(request.favicon_design.ios.dedicated_picture);
@@ -89,9 +90,14 @@ module.exports = function() {
       }
     }
     // Settings
-    request.settings = this.data.settings;
+    request.settings = params.settings;
 
-    rfg_api.generate_favicon(request, this.data.dest, function(favicon) {
+    rfg_api.generate_favicon(request, params.dest, function(favicon) {
+
+        if (typeof html_files === 'string') {
+          html_files = [html_files];
+        }
+
         html_files.forEach(function(file) {
           console.log("Process " + file);
 
@@ -102,8 +108,10 @@ module.exports = function() {
           add_favicon_markups(file, favicon.favicon.html_code);
         });
 
-        done();
+        return (params && params.callback) ? params.callback() : null;
     });
-  });
+  }
+
+  real_favicon();
 
 };
