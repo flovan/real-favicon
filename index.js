@@ -17,8 +17,13 @@ module.exports = function(params) {
   function add_favicon_markups(file, html_code) {
     var content = fs.readFileSync(file);
 
-    // The following lines were inspired by https://github.com/gleero/grunt-favicons
+    // The following lines were inspired by https://github.com/gleero/grunt-favicons and https://github.com/haydenbleasel/favicons
     var $ = cheerio.load(content);
+    var html = $.html().replace(/(?:(?:^|\n)\s+|\s+(?:$|\n))/g, '').replace(/\s+/g, ' ');
+    if (html === '') {
+        $ = cheerio.load('');
+    }
+
     // Removing exists favicon from HTML
     $('link[rel="shortcut icon"]').remove();
     $('link[rel="icon"]').remove();
@@ -99,10 +104,9 @@ module.exports = function(params) {
         }
 
         html_files.forEach(function(file) {
-          console.log("Process " + file);
 
           if (! fs.existsSync(file)) {
-            console.log("HTML file " + file + " does not exist");
+            throw "HTML file " + file + " does not exist";
           }
 
           add_favicon_markups(file, favicon.favicon.html_code);
