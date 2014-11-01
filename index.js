@@ -11,42 +11,7 @@
 module.exports = function(params) {
 
   var fs = require('fs');
-  var rfg_api = require('rfg-api').init();
-  var cheerio = require("cheerio");
-
-  function add_favicon_markups(file, html_code) {
-    var content = fs.readFileSync(file);
-
-    // The following lines were inspired by https://github.com/gleero/grunt-favicons and https://github.com/haydenbleasel/favicons
-    var $ = cheerio.load(content);
-    var html = $.html().replace(/(?:(?:^|\n)\s+|\s+(?:$|\n))/g, '').replace(/\s+/g, ' ');
-    if (html === '') {
-        $ = cheerio.load('');
-    }
-
-    // Removing exists favicon from HTML
-    $('link[rel="shortcut icon"]').remove();
-    $('link[rel="icon"]').remove();
-    $('link[rel="apple-touch-icon"]').remove();
-    $('link[rel="apple-touch-icon-precomposed"]').remove();
-    $('meta').each(function(i, elem) {
-      var name = $(this).attr('name');
-      if (name && (name === 'msapplication-TileImage' ||
-                name === 'msapplication-TileColor' ||
-                name.indexOf('msapplication-square') >= 0)) {
-        $(this).remove();
-      }
-    });
-
-    if ($('head').length > 0) {
-      $('head').append(html_code);
-    }
-    else {
-      $.root().append(html_code);
-    }
-
-    fs.writeFileSync(file, $.html());
-  }
+  var api = require('rfg-api').init();
 
   function starts_with(str, prefix) {
     return str.lastIndexOf(prefix, 0) === 0;
@@ -73,7 +38,7 @@ module.exports = function(params) {
     }
     else {
       request.master_picture.type = 'inline';
-      request.master_picture.content = rfg_api.file_to_base64(params.src);
+      request.master_picture.content = api.file_to_base64(params.src);
     }
     // Path
     request.files_location = {};
@@ -88,16 +53,16 @@ module.exports = function(params) {
     request.favicon_design = params.design;
     if (request.favicon_design !== undefined) {
       if ((request.favicon_design.ios !== undefined) && (request.favicon_design.ios.picture_aspect === 'dedicated_picture')) {
-        request.favicon_design.ios.dedicated_picture = rfg_api.file_to_base64(request.favicon_design.ios.dedicated_picture);
+        request.favicon_design.ios.dedicated_picture = api.file_to_base64(request.favicon_design.ios.dedicated_picture);
       }
       if ((request.favicon_design.windows !== undefined) && (request.favicon_design.windows.picture_aspect === 'dedicated_picture')) {
-        request.favicon_design.windows.dedicated_picture = rfg_api.file_to_base64(request.favicon_design.windows.dedicated_picture);
+        request.favicon_design.windows.dedicated_picture = api.file_to_base64(request.favicon_design.windows.dedicated_picture);
       }
     }
     // Settings
     request.settings = params.settings;
 
-    rfg_api.generate_favicon(request, params.dest, function(favicon) {
+    api.generate_favicon(request, params.dest, function(favicon) {
 
         if (typeof html_files === 'string') {
           html_files = [html_files];
@@ -109,7 +74,9 @@ module.exports = function(params) {
             throw "HTML file " + file + " does not exist";
           }
 
-          add_favicon_markups(file, favicon.favicon.html_code);
+          api.generate_favicon_markups(file, favicon.favicon.html_code, function(code) {
+            fs.writeFileSync(file, code);
+          });
         });
 
         return (params && params.callback) ? params.callback() : null;
