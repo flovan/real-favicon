@@ -71,12 +71,12 @@ module.exports = function(params) {
         html_files.forEach(function(file) {
 
           if (! fs.existsSync(file)) {
-            throw "HTML file " + file + " does not exist";
+            fs.writeFileSync(file, favicon.favicon.html_code);
+          } else {
+            api.generate_favicon_markups(file, favicon.favicon.html_code, function(code) {
+              fs.writeFileSync(file, code);
+            });
           }
-
-          api.generate_favicon_markups(file, favicon.favicon.html_code, function(code) {
-            fs.writeFileSync(file, code);
-          });
         });
 
         return (params && params.callback) ? params.callback() : null;
