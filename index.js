@@ -11,7 +11,7 @@
 module.exports = function(params) {
 
   var fs = require('fs');
-  var rfg_api = require('./lib/rfg_api.js').init();
+  var rfg_api = require('rfg-api').init();
   var cheerio = require("cheerio");
 
   function add_favicon_markups(file, html_code) {

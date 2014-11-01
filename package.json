@@ -31,6 +31,7 @@
     "fstream": "^1.0.2",
     "mkdirp": "^0.5.0",
     "node-rest-client": "^1.0.0",
+    "rfg-api": "git+https://github.com/RealFaviconGenerator/rfg-api.git",
     "unzip": "^0.1.11"
   },
   "keywords": [
