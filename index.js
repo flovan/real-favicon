@@ -73,7 +73,7 @@ module.exports = function(params) {
           if (! fs.existsSync(file)) {
             fs.writeFileSync(file, favicon.favicon.html_code);
           } else {
-            api.generate_favicon_markups(file, favicon.favicon.html_code, function(code) {
+            api.generate_favicon_markups(file, favicon.favicon.html_code, params.tags, function(code) {
               fs.writeFileSync(file, code);
             });
           }
