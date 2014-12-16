@@ -2,87 +2,127 @@
  * real-favicon
  * https://github.com/RealFaviconGenerator/real-favicon
  *
- * Copyright (c) 2014 Philippe Bernard
+ * Copyright (c) 2014 Philippe Bernard & Hayden Bleasel
  * Licensed under the MIT license.
  */
 
-'use strict';
+/*jslint node:true*/
+module.exports = function (params) {
 
-module.exports = function(params) {
+    'use strict';
 
-  var fs = require('fs');
-  var api = require('rfg-api').init();
+    var fs = require('fs'),
+        api = require('rfg-api').init(),
+        async = require('async');
 
-  function starts_with(str, prefix) {
-    return str.lastIndexOf(prefix, 0) === 0;
-  }
-
-  function is_url(url_or_path) {
-    return starts_with(url_or_path, 'http://') ||
-      starts_with(url_or_path, 'https://') ||
-      starts_with(url_or_path, '//');
-  }
-
-  function real_favicon() {
-
-    var html_files = params.html;
-
-    // Build favicon generation request
-    var request = {};
-    request.api_key = 'f26d432783a1856427f32ed8793e1d457cc120f1';
-    // Master picture
-    request.master_picture = {};
-    if (is_url(params.src)) {
-      request.master_picture.type = 'url';
-      request.master_picture.url = params.src;
+    function starts_with(str, prefix) {
+        return str.lastIndexOf(prefix, 0) === 0;
     }
-    else {
-      request.master_picture.type = 'inline';
-      request.master_picture.content = api.file_to_base64(params.src);
-    }
-    // Path
-    request.files_location = {};
-    if (params.icons_path === undefined) {
-      request.files_location.type = 'root';
-    }
-    else {
-      request.files_location.type = 'path';
-      request.files_location.path = params.icons_path;
-    }
-    // Design
-    request.favicon_design = params.design;
-    if (request.favicon_design !== undefined) {
-      if ((request.favicon_design.ios !== undefined) && (request.favicon_design.ios.picture_aspect === 'dedicated_picture')) {
-        request.favicon_design.ios.dedicated_picture = api.file_to_base64(request.favicon_design.ios.dedicated_picture);
-      }
-      if ((request.favicon_design.windows !== undefined) && (request.favicon_design.windows.picture_aspect === 'dedicated_picture')) {
-        request.favicon_design.windows.dedicated_picture = api.file_to_base64(request.favicon_design.windows.dedicated_picture);
-      }
-    }
-    // Settings
-    request.settings = params.settings;
 
-    api.generate_favicon(request, params.dest, function(favicon) {
+    function is_url(str) {
+        return starts_with(str, 'http://') || starts_with(str, 'https://') || starts_with(str, '//');
+    }
 
-        if (typeof html_files === 'string') {
-          html_files = [html_files];
+    function make_favicons(file, favicon, callback) {
+        fs.exists(file, function (exists) {
+            if (exists) {
+                api.generate_favicon_markups(file, favicon.favicon.html_code, params.tags, function (html, add) {
+                    fs.writeFile(file, html, function (err) {
+                        if (err) throw err;
+                        callback(add);
+                    })
+                });
+            } else {
+                fs.writeFile(file, favicon.favicon.html_code, function (err) {
+                    if (err) throw err;
+                    callback(favicon.favicon.html_code);
+                });
+            }
+        });
+    }
+
+    function real_favicon() {
+        var html_files = typeof params.html === 'string' ? [params.html] : params.html,
+            request = {
+                api_key: 'f26d432783a1856427f32ed8793e1d457cc120f1',
+                master_picture: {},
+                files_location: {},
+                favicon_design: params.design,
+                settings: params.settings
+            };
+
+        if (params.icons_path === undefined) {
+            request.files_location.type = 'root';
+        } else {
+            request.files_location.type = 'path';
+            request.files_location.path = params.icons_path;
         }
 
-        html_files.forEach(function(file) {
-
-          if (! fs.existsSync(file)) {
-            fs.writeFileSync(file, favicon.favicon.html_code);
-          } else {
-            api.generate_favicon_markups(file, favicon.favicon.html_code, params.tags, function(code) {
-              fs.writeFileSync(file, code);
-            });
-          }
+        async.waterfall([
+            function (callback) {
+                if (is_url(params.src)) {
+                    request.master_picture.type = 'url';
+                    request.master_picture.url = params.src;
+                    callback(null);
+                } else {
+                    request.master_picture.type = 'inline';
+                    api.file_to_base64(params.src, function (file) {
+                        request.master_picture.content = file;
+                        callback(null);
+                    });
+                }
+            },
+            function (callback) {
+                if (request.favicon_design !== undefined) {
+                    if ((request.favicon_design.windows !== undefined) && (request.favicon_design.windows.picture_aspect === 'dedicated_picture')) {
+                        api.file_to_base64(request.favicon_design.windows.dedicated_picture, function(file) {
+                            request.favicon_design.windows.dedicated_picture = file;
+                            callback(null);
+                        });
+                    } else {
+                        callback(null);
+                    }
+                } else {
+                    callback(null);
+                }
+            },
+            function (callback) {
+                if (request.favicon_design !== undefined) {
+                    if ((request.favicon_design.ios !== undefined) && (request.favicon_design.ios.picture_aspect === 'dedicated_picture')) {
+                        api.file_to_base64(request.favicon_design.ios.dedicated_picture, function(file) {
+                            request.favicon_design.ios.dedicated_picture = file;
+                            callback(null);
+                        });
+                    } else {
+                        callback(null);
+                    }
+                } else {
+                    callback(null);
+                }
+            },
+            function (callback) {
+                api.generate_favicon(request, params.dest, function(favicon) {
+                    return callback(null, favicon);
+                });
+            },
+            function (favicon, callback) {
+                var codes = [];
+                async.each(html_files, function(html, callback) {
+                    make_favicons(html, favicon, function (code) {
+                        codes.push(code);
+                        callback(null, code);
+                    });
+                }, function (err, files) {
+                    return callback(err, codes);
+                });
+            },
+        ], function (err, codes) {
+            if (err) throw err;
+            return (params && params.callback) ? params.callback(codes) : null;
         });
 
-        return (params && params.callback) ? params.callback() : null;
-    });
-  }
+    }
 
-  real_favicon();
+    real_favicon();
 
 };

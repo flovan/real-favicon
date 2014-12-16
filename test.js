@@ -35,5 +35,8 @@ real_favicon({
     compression: 5,
     // Default is Mitchell
     scaling_algorithm: 'NearestNeighbor'
+  },
+  callback: function (codes) {
+    console.log(codes);
   }
 });
