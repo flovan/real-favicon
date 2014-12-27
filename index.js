@@ -29,7 +29,7 @@ module.exports = function (params) {
                 api.generate_favicon_markups(file, favicon.favicon.html_code, params.tags, function (html, add) {
                     fs.writeFile(file, html, function (err) {
                         if (err) throw err;
-                        callback(add);
+                        callback(html);
                     })
                 });
             } else {
