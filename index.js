@@ -41,6 +41,10 @@ module.exports = function (params) {
         });
     }
 
+    function is_supported_platform(platform) {
+        return (['desktop_browser', 'ios', 'windows', 'firefox_app', 'android_chrome', 'coast', 'open_graph', 'yandex_browser'].indexOf(platform) > -1);
+    }
+
     function real_favicon() {
         var html_files = typeof params.html === 'string' ? [params.html] : params.html,
             request = {
@@ -49,7 +53,8 @@ module.exports = function (params) {
                 files_location: {},
                 favicon_design: params.design,
                 settings: params.settings
-            };
+            },
+            async_funtions;;
 
         if (params.icons_path === undefined) {
             request.files_location.type = 'root';
@@ -58,7 +63,7 @@ module.exports = function (params) {
             request.files_location.path = params.icons_path;
         }
 
-        async.waterfall([
+        async_funtions = [
             function (callback) {
                 if (is_url(params.src)) {
                     request.master_picture.type = 'url';
@@ -71,35 +76,29 @@ module.exports = function (params) {
                         callback(null);
                     });
                 }
-            },
-            function (callback) {
-                if (request.favicon_design !== undefined) {
-                    if ((request.favicon_design.windows !== undefined) && (request.favicon_design.windows.picture_aspect === 'dedicated_picture')) {
-                        api.file_to_base64(request.favicon_design.windows.dedicated_picture, function(file) {
-                            request.favicon_design.windows.dedicated_picture = file;
+            }
+        ];
+
+        for (var key in request.favicon_design) {
+            if (request.favicon_design.hasOwnProperty(key) && is_supported_platform(key)) {
+                async_funtions.push(function (callback) {
+                    var platform = request.favicon_design[key];
+                    if ((platform.master_picture !== undefined) && (typeof platform.master_picture.src == 'string')) {
+                        api.file_to_base64(platform.master_picture.src, function(file) {
+                            platform.master_picture = {
+                                type: 'inline',
+                                content: file
+                            };
                             callback(null);
                         });
                     } else {
                         callback(null);
                     }
-                } else {
-                    callback(null);
-                }
-            },
-            function (callback) {
-                if (request.favicon_design !== undefined) {
-                    if ((request.favicon_design.ios !== undefined) && (request.favicon_design.ios.picture_aspect === 'dedicated_picture')) {
-                        api.file_to_base64(request.favicon_design.ios.dedicated_picture, function(file) {
-                            request.favicon_design.ios.dedicated_picture = file;
-                            callback(null);
-                        });
-                    } else {
-                        callback(null);
-                    }
-                } else {
-                    callback(null);
-                }
-            },
+                });
+            }
+        }
+
+        async_funtions.push.apply(async_funtions, [
             function (callback) {
                 api.generate_favicon(request, params.dest, function(favicon) {
                     return callback(null, favicon);
@@ -116,7 +115,9 @@ module.exports = function (params) {
                     return callback(err, codes);
                 });
             },
-        ], function (err, codes) {
+        ]);
+
+        async.waterfall(async_funtions, function (err, codes) {
             if (err) throw err;
             return (params && params.callback) ? params.callback(codes) : null;
         });
